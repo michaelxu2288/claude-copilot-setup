@@ -4,6 +4,8 @@ Turn a **completely fresh Mac** into **Claude Code running Opus 4.8**, via a loc
 **LiteLLM proxy → GitHub Copilot**. Assumes the machine has **nothing** — no Homebrew,
 Python, Docker, Node, LiteLLM, or Claude Code.
 
+Allows **any machine** to have access to Opus 4.8/GPT 5.5 max effort thinking with **unlimited** tokens/usage, through Claude Code (Anthropic models only in CC)
+
 The runbook is in two parts, easiest-first:
 
 - **PART 1 — get Opus 4.8 working in the CLI (do this first).** The fastest route to a
