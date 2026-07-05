@@ -22,10 +22,8 @@ The runbook is in two parts, easiest-first:
 
 ## The one manual step (do this first)
 
-Get your Copilot access-token from a machine that already works:
-```bash
-cat ~/.config/litellm/github_copilot/access-token   # a ghu_... string (40 chars)
-```
+Get your Copilot access-token 
+
 On the new Mac, in the repo, put it in `.env` (raw — no quotes, no trailing spaces):
 ```bash
 cd claude-copilot-setup
