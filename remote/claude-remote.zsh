@@ -1,7 +1,7 @@
 # claude-remote helpers — sourced from ~/.zshrc
 # the gateway config (base url + token + models) lives in the normal ~/.claude profile.
 
-CC_BIN="$HOME/.local/bin/claude"
+CC_BIN="$(command -v claude 2>/dev/null || echo "$HOME/.local/bin/claude")"
 
 # --- litellm gateway ---
 # one command: (re)start the gateway and confirm it's live

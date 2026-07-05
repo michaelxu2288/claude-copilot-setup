@@ -4,7 +4,7 @@
 # Installed to ~/.config/litellm/gateway.sh; run by a LaunchAgent at login.
 set -uo pipefail
 # a login LaunchAgent inherits a minimal PATH — make brew/colima/docker/litellm reachable
-export PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
 
 LL="$HOME/.config/litellm"
 KEY="$(cat "$LL/.master_key" 2>/dev/null || true)"
@@ -25,7 +25,7 @@ start_docker(){
 }
 start_python(){
   pgrep -f 'litellm --config' >/dev/null && return 0
-  nohup "$HOME/.local/bin/litellm" --config "$LL/config.yaml" --port 4000 >>"$LL/proxy.log" 2>&1 &
+  nohup "$HOME/.local/bin/litellm" --config "$LL/config.yaml" --host 127.0.0.1 --port 4000 >>"$LL/proxy.log" 2>&1 &
 }
 
 case "${1:-start}" in

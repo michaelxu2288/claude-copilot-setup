@@ -12,8 +12,8 @@
 set -uo pipefail
 
 # --- make brew + user-local bins reachable in THIS shell (agents run each step fresh) ---
-eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null || true)"
-export PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null || /usr/local/bin/brew shellenv 2>/dev/null || true)"
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LL_DIR="$HOME/.config/litellm"
@@ -31,7 +31,7 @@ if [[ -f "$REPO/.env" ]]; then set -a; . "$REPO/.env"; set +a; ok "loaded .env";
 if [[ -n "${COPILOT_ACCESS_TOKEN:-}" ]]; then
   COPILOT_ACCESS_TOKEN="${COPILOT_ACCESS_TOKEN//$'\r'/}"
   COPILOT_ACCESS_TOKEN="${COPILOT_ACCESS_TOKEN//\"/}"; COPILOT_ACCESS_TOKEN="${COPILOT_ACCESS_TOKEN//\'/}"
-  COPILOT_ACCESS_TOKEN="$(printf '%s' "$COPILOT_ACCESS_TOKEN" | xargs 2>/dev/null || printf '%s' "$COPILOT_ACCESS_TOKEN")"
+  COPILOT_ACCESS_TOKEN="${COPILOT_ACCESS_TOKEN// /}"
 fi
 
 # --- args OVERRIDE .env (flags win) ---------------------------------------
@@ -125,7 +125,7 @@ log "Installing statusline script"
 cp "$REPO/claude/statusline-command.sh" "$HOME/.claude/statusline-command.sh" 2>/dev/null || { mkdir -p "$HOME/.claude"; cp "$REPO/claude/statusline-command.sh" "$HOME/.claude/statusline-command.sh"; }
 chmod +x "$HOME/.claude/statusline-command.sh"
 log "Writing ~/.claude/settings.json (Opus 4.8 1M + your settings)"
-python3 - "$REPO/claude/settings.template.json" "$HOME/.claude/settings.json" "$MASTER_KEY" <<'PY'
+if python3 - "$REPO/claude/settings.template.json" "$HOME/.claude/settings.json" "$MASTER_KEY" <<'PY'
 import json, os, sys, time
 tmpl = json.load(open(sys.argv[1])); dst_path, key = sys.argv[2], sys.argv[3]
 dst = {}
@@ -134,16 +134,16 @@ if os.path.exists(dst_path):
     open(dst_path + ".bak." + str(int(time.time())), "w").write(raw)   # back up RAW bytes
     try: dst = json.loads(raw)
     except Exception: dst = {}
-# env: substitute the master key, merge (ours win, user's other env keys preserved)
+if not isinstance(dst, dict): dst = {}                       # existing file could be a list/scalar
 env = {k: (key if v == "__MASTER_KEY__" else v) for k, v in tmpl.get("env", {}).items()}
-dst.setdefault("env", {}); dst["env"].update(env)
-# top-level keys (model, statusLine, effortLevel, permissions, theme, ...) — ours win
-for k, v in tmpl.items():
+if not isinstance(dst.get("env"), dict): dst["env"] = {}
+dst["env"].update(env)                                        # ours win, user's other env keys preserved
+for k, v in tmpl.items():                                     # top-level keys (model, statusLine, ...)
     if k != "env": dst[k] = v
 json.dump(dst, open(dst_path, "w"), indent=2)
 print("  merged env + top-level settings into", dst_path)
 PY
-ok "settings written"
+then ok "settings written"; else die "settings merge failed"; fi
 
 # --- 9. /artifact skill (idempotent) --------------------------------------
 log "Installing /artifact skill"
@@ -190,7 +190,8 @@ resp=$(curl -s -m 90 http://127.0.0.1:4000/v1/chat/completions \
   -d '{"model":"claude-opus-4-8[1m]","messages":[{"role":"user","content":"reply with the single word: ready"}],"max_tokens":16}' 2>/dev/null)
 echo; log "Start Claude Code with:  claude   (verify with /status → Opus 4.8 1M)"
 echo "     gateway control:  $LL_DIR/gateway.sh {start|stop|restart|status}"
-if echo "$resp" | grep -qi ready; then ok "Opus 4.8 responded — setup complete"; exit 0
-else warn "test call did NOT return 'ready'. Response head:"; echo "$resp" | head -c 400; echo
-  warn "likely: seeded token stale/revoked, OR org hasn't enabled Claude models. See README troubleshooting."
+if echo "$resp" | grep -qi ready && command -v claude >/dev/null; then ok "Opus 4.8 responded + Claude Code present — setup complete"; exit 0
+else warn "setup NOT fully verified:"
+  echo "$resp" | grep -qi ready || { echo "$resp" | head -c 400; echo; warn "model test didn't return 'ready' — token stale/revoked, or org hasn't enabled Claude models."; }
+  command -v claude >/dev/null || warn "Claude Code not on PATH — install it (README Phase C)."
   exit 1; fi
